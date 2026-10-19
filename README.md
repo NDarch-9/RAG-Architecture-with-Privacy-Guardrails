@@ -1,4 +1,4 @@
-# Enterprise RAG-Architecture-with-Privacy-Guardrails
+# Enterprise RAG Architecture with Privacy Guardrails
 Cloud Infrastructure Design for an Internal AI Assistant: Document-Based Q&amp;A with Data Loss Prevention, Security, and Governance
 ## Problem Statement
 Companies want to leverage Generative AI models (LLMs) to answer employee inquiries based on internal documents and policies
@@ -16,6 +16,9 @@ Deploying a secure cloud infrastructure based on RAG (Retrieval-Augmented Genera
 ## Architecture Overview
 <img width="2603" height="1772" alt="Blank diagram (5)" src="https://github.com/user-attachments/assets/9366d213-12ba-4e59-a8f2-2f059daa9387" />
 
+## Ingestion & Query Pipeline
+<img width="2400" height="1480" alt="Enterprise-RAG-Pipeline" src="https://github.com/user-attachments/assets/5c2b6302-3203-4787-918a-e68c9afa0473" />
+
 ## Security, Privacy & Observability
 
 This design uses **defense in depth**: no single control protects the system on its own. Encryption, permissions, networking, and monitoring work together, so if one layer fails, the others still hold.
@@ -27,25 +30,6 @@ This design uses **defense in depth**: no single control protects the system on 
 | **VPC Endpoints** (PrivateLink) | Keeps traffic between services on AWS's private network, never on the public internet. |
 | **Amazon CloudWatch** | Monitors the system and raises alerts on unusual activity, such as a sudden spike in blocked requests. |
 | **AWS CloudTrail** | Records every API call: who did what, when, and from where. |
-
-### Example: Why These Layers Matter
-
-**Scenario:** A Lambda function's credentials leak. An attacker tries to read HR documents straight from S3, skipping Guardrails entirely.
-
-**Expected behavior by design:**
-
-1. **IAM** denies the request. The function's role has no permission on that folder.
-2. **KMS** blocks decryption even if a permission was granted by mistake, because the key policy doesn't allow that role.
-3. **VPC Endpoints** keep the services unreachable from the public internet.
-4. **CloudTrail** logs the denied attempt with the identity, time, and source.
-5. **CloudWatch** fires an alert after repeated denials, so the security team can react early.
-
-**Takeaway:** Three layers prevent the attack (IAM, KMS, network) and two layers detect it (CloudTrail, CloudWatch). Nothing depends on a single control.
-
-> **Note:** This scenario shows the expected behavior based on the architecture design. It has not been tested in a real AWS environment yet. This section will be updated with real results after implementation.
-## Enterprise-RAG-Pipeline
-<img width="2400" height="1480" alt="Enterprise-RAG-Pipeline" src="https://github.com/user-attachments/assets/5c2b6302-3203-4787-918a-e68c9afa0473" />
-
 
 ##  Service Justification
 
@@ -64,14 +48,6 @@ Each service below is listed in the order a request flows through the system, fo
 | 7 | **Amazon Bedrock** (LLM) | Generates the answer | Access to foundation models through one API, with data kept inside the AWS account. The model answers only from retrieved context. |
 | 8 | **Amazon Bedrock Guardrails** (output) | Checks the answer | Catches leaked data and inappropriate content, and verifies the answer is grounded in the retrieved sources, which reduces hallucinations. |
 
-### Security and observability
-
-| Service | Role | Why this choice |
-|---|---|---|
-| **AWS KMS** | Encryption keys | Customer-managed keys give the company control: it can rotate keys, audit their use, or revoke access. |
-| **AWS IAM** | Permissions | Least privilege per component, so one compromised role cannot reach everything. |
-| **VPC Endpoints (PrivateLink)** | Private networking | Service-to-service traffic never crosses the public internet. |
-| **Amazon CloudWatch** | Monitoring and alerts | Detects unusual behavior early, such as a spike in blocked requests. |
-| **AWS CloudTrail** | Audit trail | Records who called what, when, and from where, which supports governance and investigations. |
-
+## Design principle:
+managed services over custom code. Security patching, scaling, and availability stay with AWS, so the team focuses on policies and access rules instead of infrastructure.
 
